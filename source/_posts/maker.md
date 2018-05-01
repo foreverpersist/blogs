@@ -1,0 +1,168 @@
+---
+title: maker
+date: 2017-04-06 14:21:19
+tags: tools
+comment: true
+---
+
+  This is a simple tool for generating java project Makefile.
+  Although it is designed for java, you can also use it with some changes for other target like java, such as scala.
+
+<!-- more -->
+
+# maker
+
+  It is just a shell script, so you can run it with bash.
+
+## configure
+
+  1. create a new file named 'maker'(or anything you like) script in any directory included by $PATH
+``` bash
+$ vim maker 
+```
+
+  2. edit maker
+```
+#!/bin/bash
+#Author: persist
+#Abstract: generate java Makefile
+
+#source directory path (-s)
+SRC=src
+#lib directory path (-l)
+LIB=lib
+#extra libs (-e)
+EXT_LIBS=
+#directory path which *.class files will be put into (-c)
+CLASSES=classes
+#main class
+MAIN_CLASS=Main
+#final *.jar file path (-f)
+JAR_FILE=Main.jar
+
+#key words to search main class files
+MAIN_KEY="public static void main"
+#output file path (-o)
+OUTPUT=/dev/stdout
+
+#parse option
+while getopts "hs:l:e:c:m:f:o:k:" opt
+do
+  case $opt in
+    h)
+      echo "usage: maker [option]"
+      echo "options and arguments"
+      echo "-s src	: source directory path; default value is src"
+      echo "-l lib	: lib directory path; default value is lib"
+      echo "-e ext_lib	: extra libs,format: a.jar,b.jar; default value is  (empty)"
+      echo "-c classes	: directory path which *.class files will be put into; default value is classes"
+      echo "-m main_class: main class to be executed; default value is Main"
+      echo "-f jar_file	: final *.jar file path; default value is Main.jar"
+      echo "-o output	: output file path; default value is stdout"
+      echo "-k key_words: key words to search main class files; default value is \"public static void main\""
+      exit
+      ;;
+    s)
+      SRC=$OPTARG 
+      ;;
+    l)
+      LIB=$OPTARG
+      ;;
+    e)
+      EXT_LIBS=$OPTARG
+      ;; 
+    c)
+      CLASSES=$OPTARG
+      ;;
+    m)
+      MAIN_CLASS=$OPTARG
+      ;;
+    f)
+      JAR_FILE=$OPTARG
+      ;;
+    o)
+      OUTPUT=$OPTARG
+      ;;
+    k)
+      MAIN_KEY=$OPTARG
+      ;;
+   \?)
+      echo "usage: maker [option]"
+      echo "options and arguments"
+      echo "-s src	: source directory path; default value is src"
+      echo "-l lib	: lib directory path; default value is lib"
+      echo "-e ext_lib	: extra libs,format: a.jar,b.jar; default value is  (empty)"
+      echo "-c classes	: directory path which *.class files will be put into; default value is classes"
+      echo "-m main	: main class to execute, such as com.persist.Main"
+      echo "-f jar_file	: final *.jar file path; default value is Main.jar"
+      echo "-k key 	: key words to search main files"
+      echo "-o output	: output file path; default value is stdout"
+      exit
+      ;;
+  esac
+done
+
+#parse EXT_LIBS
+EXT_LIBS=${EXT_LIBS/,/ }
+#parse MAIN_FILES
+cd $SRC
+MAIN_INFO=$(grep -rn "$MAIN_KEY" | awk '{print $1}')
+MAIN_INFO=${MAIN_INFO//:/ }
+MAIN_FILES=${MAIN_INFO//[0-9]/ }
+MAIN_FILES=$(echo $MAIN_FILES)
+cd $OLDPWD
+
+#generate Makefile
+echo "#Makefile" > $OUTPUT
+echo "JAVAC=javac" >> $OUTPUT
+echo "JAVA=java" >> $OUTPUT
+echo "JAR=jar" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "SRC=$SRC" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "LIB=$LIB" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "EXT_LIBS=$EXT_LIBS" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "CLASSES=$CLASSES" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "MAIN_FILES=$MAIN_FILES" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "MAIN_CLASS=$MAIN_CLASS" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "JAR_FILE=$JAR_FILE" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "#parse main files" >> $OUTPUT
+echo "FULL_MAIN_FILES=\$(addprefix \$(SRC)/,\$(MAIN_FILES))" >> $OUTPUT
+echo "#parse jar dirs" >> $OUTPUT
+echo "JAR_DIRS=\$(wildcard \$(CLASSES)/*)" >> $OUTPUT
+echo "#parse dependencies" >> $OUTPUT
+echo  "JARS=\$(wildcard \$(LIB)/*.jar)" >> $OUTPUT
+echo  "JARS+=\$(EXT_LIBS)" >> $OUTPUT
+echo  "noop=" >> $OUTPUT
+echo  "space=\$(noop) \$(noop)" >> $OUTPUT
+echo  "DEPENDENCIES=\$(subst \$(space),:,\$(JARS))" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "all: " >> $OUTPUT
+echo  "	mkdir -p \$(CLASSES)" >> $OUTPUT
+echo  "	\$(JAVAC) -classpath \$(DEPENDENCIES) -sourcepath \$(SRC) \$(FULL_MAIN_FILES) -d \$(CLASSES)" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "jar: " >> $OUTPUT
+echo  "	\$(JAR) cvf \$(JAR_FILE)  \$(JAR_DIRS)" >> $OUTPUT
+echo "" >> $OUTPUT
+echo "run: " >> $OUTPUT
+echo  "	\$(JAVA) -Djava.ext.dirs=\$(LIB) -classpath \$(CLASSES) \$(MAIN_CLASS)">> $OUTPUT
+echo "" >> $OUTPUT
+echo "clean: " >> $OUTPUT
+echo  "	rm -rf \$(CLASSES) \$(JAR_FILE)" >> $OUTPUT
+echo ".PHONY: all jar run clean" >> $OUTPUT
+
+```
+
+  3. run maker, you can use -h for help
+```
+$ maker [option]
+```

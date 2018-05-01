@@ -1,0 +1,38 @@
+---
+title: shadowsocks installation
+date: 2017-04-13 17:47:40
+tags: courses
+comment: true
+---
+
+  explain how to install shadowsocks on ubuntu
+  
+<!-- more -->
+
+## install
+
+``` bash
+$ sudo apt-get install python-pip
+$ sudo apt-get install python-setuptools m2crypto
+$ sudo pip install shadowsocks
+```
+
+## configure
+
+  create as json file named shadsocks.json (or any name you like) to set your proxy properties, such as:
+```
+    {
+    "server":"12.34.56.78",
+    "server_port":5001,
+    "local_port":1080,
+    "password":"zheshimima",
+    "timeout":600,
+    "method":"aes-256-cfb"
+    }
+```
+
+## run
+  run client
+``` bash
+$ sslocal -c shadowsocks.json
+```
