@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=6.4.1" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.4.1">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.4.1">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.4.1">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.4.1" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '6.4.1',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="explain how qemu thread pool works">
+<meta name="keywords" content="qemu">
+<meta property="og:type" content="article">
+<meta property="og:title" content="thread pool">
+<meta property="og:url" content="http://foreverpersist.github.io/2017/04/07/thread-pool/index.html">
+<meta property="og:site_name" content="PERSIST">
+<meta property="og:description" content="explain how qemu thread pool works">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-09-10T03:45:23.094Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="thread pool">
+<meta name="twitter:description" content="explain how qemu thread pool works">
+
+
+
+
+
+
+  <link rel="canonical" href="http://foreverpersist.github.io/2017/04/07/thread-pool/"/>
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>thread pool | PERSIST</title>
+  
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="default">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">PERSIST</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br />Home</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />Archives</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+    
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://foreverpersist.github.io/2017/04/07/thread-pool/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="persist">
+      <meta itemprop="description" content="persist for ever">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="PERSIST">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">thread pool
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2017-04-07 17:07:26" itemprop="dateCreated datePublished" datetime="2017-04-07T17:07:26+00:00">2017-04-07</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2018-09-10 03:45:23" itemprop="dateModified" datetime="2018-09-10T03:45:23+00:00">2018-09-10</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2017/04/07/thread-pool/#comments" itemprop="discussionUrl">
+                  <span class="post-meta-item-text">Comments: </span> <span class="post-comments-count gitment-comments-count" data-xid="/2017/04/07/thread-pool/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>  explain how qemu thread pool works</p>
+<a id="more"></a>
+<h2 id="Structure"><a href="#Structure" class="headerlink" title="Structure"></a>Structure</h2><h3 id="ThreadPool"><a href="#ThreadPool" class="headerlink" title="ThreadPool"></a>ThreadPool</h3><h4 id="completion-bh"><a href="#completion-bh" class="headerlink" title="completion_bh"></a>completion_bh</h4><p>  invoke thread_pool_completion_bh to handle respones after a request has been handled</p>
+<h4 id="new-thread-bh"><a href="#new-thread-bh" class="headerlink" title="new_thread_bh"></a>new_thread_bh</h4><p>  invoke spawn_thread_bh_fn to create threads if needed</p>
+<h4 id="max-threads"><a href="#max-threads" class="headerlink" title="max_threads"></a>max_threads</h4><p>  max thread num</p>
+<h4 id="cur-threads"><a href="#cur-threads" class="headerlink" title="cur_threads"></a>cur_threads</h4><p>  current thread num include threads which will be created</p>
+<h4 id="idle-threads"><a href="#idle-threads" class="headerlink" title="idle_threads"></a>idle_threads</h4><p>  idle threads num</p>
+<h4 id="pending-threads"><a href="#pending-threads" class="headerlink" title="pending_threads"></a>pending_threads</h4><p>  pending thread num</p>
+<h2 id="API"><a href="#API" class="headerlink" title="API"></a>API</h2><h3 id="thread-pool-submit-aio"><a href="#thread-pool-submit-aio" class="headerlink" title="thread_pool_submit_aio"></a>thread_pool_submit_aio</h3><blockquote>
+<ul>
+<li>insert a req to request list </li>
+<li>if there no idle threads, cur_threads and new_threads is increased, and do_spawn_thread will be invoked if there are no pending threads</li>
+</ul>
+</blockquote>
+<h3 id="do-spawn-thread"><a href="#do-spawn-thread" class="headerlink" title="do_spawn_thread"></a>do_spawn_thread</h3><blockquote>
+<ul>
+<li>if there are threads needed to be created, new_threads is decreased, pending_threads is increased, and a new threads will be created with start routine worker_thread</li>
+</ul>
+</blockquote>
+<h3 id="worker-thread"><a href="#worker-thread" class="headerlink" title="worker_thread"></a>worker_thread</h3><blockquote>
+<ul>
+<li>pending_threads is decreased</li>
+<li>invoke do_spawn_thread to handle new_threads</li>
+</ul>
+</blockquote>
+<blockquote>
+<ul>
+<li>loop: until thread pool stops or error happens<blockquote>
+<ul>
+<li>inner loop: until a request arrives</li>
+<li>idle_threads is increased</li>
+<li>wait for request with timeout 10000</li>
+<li>idle_threads is decreased</li>
+</ul>
+</blockquote>
+</li>
+</ul>
+</blockquote>
+<blockquote>
+<ul>
+<li>get a request form request list and handle it by executing req-&gt;func</li>
+<li>schedule completion_bh to invoke thread_pool_completion_bh</li>
+<li>cur_threads is decreased</li>
+</ul>
+</blockquote>
+<h3 id="thread-pool-completion-bh"><a href="#thread-pool-completion-bh" class="headerlink" title="thread_pool_completion_bh"></a>thread_pool_completion_bh</h3><blockquote>
+<ul>
+<li>restart(tag):<blockquote>
+<ul>
+<li>find a element whose start is THREAD_DONE</li>
+<li>remove the element</li>
+<li>if the element has own compleltion function, it will be invoked, then the element will be released and ‘restart’ will be executed again; otherwise, the element will be released</li>
+</ul>
+</blockquote>
+</li>
+</ul>
+</blockquote>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/qemu/" rel="tag"># qemu</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/04/07/aio-mode/" rel="next" title="aio mode">
+                <i class="fa fa-chevron-left"></i> aio mode
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/04/13/shadowsocks-installation/" rel="prev" title="shadowsocks installation">
+                shadowsocks installation <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      
+        <div id="gitment-container"></div>
+      
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">persist</p>
+              <p class="site-description motion-element" itemprop="description">persist for ever</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">6</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">3</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Structure"><span class="nav-number">1.</span> <span class="nav-text">Structure</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#ThreadPool"><span class="nav-number">1.1.</span> <span class="nav-text">ThreadPool</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#completion-bh"><span class="nav-number">1.1.1.</span> <span class="nav-text">completion_bh</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#new-thread-bh"><span class="nav-number">1.1.2.</span> <span class="nav-text">new_thread_bh</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#max-threads"><span class="nav-number">1.1.3.</span> <span class="nav-text">max_threads</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#cur-threads"><span class="nav-number">1.1.4.</span> <span class="nav-text">cur_threads</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#idle-threads"><span class="nav-number">1.1.5.</span> <span class="nav-text">idle_threads</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#pending-threads"><span class="nav-number">1.1.6.</span> <span class="nav-text">pending_threads</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#API"><span class="nav-number">2.</span> <span class="nav-text">API</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#thread-pool-submit-aio"><span class="nav-number">2.1.</span> <span class="nav-text">thread_pool_submit_aio</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#do-spawn-thread"><span class="nav-number">2.2.</span> <span class="nav-text">do_spawn_thread</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#worker-thread"><span class="nav-number">2.3.</span> <span class="nav-text">worker_thread</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#thread-pool-completion-bh"><span class="nav-number">2.4.</span> <span class="nav-text">thread_pool_completion_bh</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2018</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">persist</span>
+
+  
+
+  
+</div>
+
+
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> v3.7.1</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme – <a class="theme-link" target="_blank" href="https://theme-next.org">NexT.Muse</a> v6.4.1</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+	
+    
+
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.4.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.4.1"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.4.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.4.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.4.1"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+<!-- LOCAL: You can save these files to your site and update links -->
+    
+        
+        <link rel="stylesheet" href="https://aimingoo.github.io/gitmint/style/default.css">
+        <script src="https://aimingoo.github.io/gitmint/dist/gitmint.browser.js"></script>
+    
+<!-- END LOCAL -->
+
+    
+
+    
+      <script type="text/javascript">
+      function renderGitment(){
+        var gitment = new Gitmint({
+            id: window.location.pathname,
+            owner: 'foreverpersist',
+            repo: 'foreverpersist.github.io',
+            
+            lang: "" || navigator.language || navigator.systemLanguage || navigator.userLanguage,
+            
+            oauth: {
+            
+            
+                client_secret: '5aa4e81d14d8794ba5cc5ef4911d429486597092',
+            
+                client_id: '71810ebf92a2fcaf8c32'
+            }});
+        gitment.render('gitment-container');
+      }
+
+      
+      renderGitment();
+      
+      </script>
+    
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
